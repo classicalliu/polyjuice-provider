@@ -130,7 +130,7 @@ export class PolyjuiceHDWalletProvider extends HDWalletProvider {
           }
           const polyjuice_tx = await godwoker.assembleRawL2Transaction(t);
           const message = await godwoker.generateMessageFromEthTransaction(t);
-          const msgHashBuff = Buffer.from(message);
+          const msgHashBuff = EthUtil.toBuffer(message);
           const sig = EthUtil.ecsign(msgHashBuff, pkey);
           const signature = EthUtil.toRpcSig(sig.v, sig.r, sig.s);
           const l2_tx = {
