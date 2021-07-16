@@ -2,7 +2,15 @@ import HDWalletProvider from "@truffle/hdwallet-provider";
 import { ConstructorArguments } from "@truffle/hdwallet-provider/dist/constructor/ConstructorArguments";
 import HookedSubprovider from "@trufflesuite/web3-provider-engine/subproviders/hooked-wallet";
 import * as EthUtil from "ethereumjs-util";
+import FiltersSubprovider from "@trufflesuite/web3-provider-engine/subproviders/filters";
+import ProviderSubprovider from "@trufflesuite/web3-provider-engine/subproviders/provider";
 import ProviderEngine from "@trufflesuite/web3-provider-engine";
+import NonceSubProvider from "@trufflesuite/web3-provider-engine/subproviders/nonce-tracker";
+// @ts-ignore
+import RpcProvider from "@trufflesuite/web3-provider-engine/subproviders/rpc";
+// @ts-ignore
+import WebsocketProvider from "@trufflesuite/web3-provider-engine/subproviders/websocket";
+import Url from "url";
 import { getOptions } from "@truffle/hdwallet-provider/dist/constructor/getOptions";
 import { Godwoker, GodwokerOption, AbiItems } from "@polyjuice-provider/base"
 
@@ -18,15 +26,27 @@ type PolyjuiceConfig = {
   web3Url?: string;
 };
 
+const singletonNonceSubProvider = new NonceSubProvider();
+
 export class PolyjuiceHDWalletProvider extends HDWalletProvider {
   constructor(
     args: ConstructorArguments,
     polyjuiceConfig: PolyjuiceConfig,
   ) {
-    super(...args);
+    super(...args); 
 
     const {
+      providerOrUrl, // required
+      addressIndex = 0,
+      numberOfAddresses = 10,
+      shareNonce = true,
+      derivationPath = `m/44'/60'/0'/0/`,
       pollingInterval = 4000,
+      chainId,
+      chainSettings = {},
+
+      // what's left is either a mnemonic or a list of private keys
+      ...signingAuthority
     } = getOptions(...args);
 
     const tmpAccounts = this.getAddresses();
@@ -159,6 +179,37 @@ export class PolyjuiceHDWalletProvider extends HDWalletProvider {
         }
       })
     );
+    
+    !shareNonce
+      ? this.engine.addProvider(new NonceSubProvider())
+      : this.engine.addProvider(singletonNonceSubProvider);
+
+    this.engine.addProvider(new FiltersSubprovider());
+    if (typeof providerOrUrl === "string") {
+      const url = providerOrUrl;
+
+      const providerProtocol = (
+        Url.parse(url).protocol || "http:"
+      ).toLowerCase();
+
+      switch (providerProtocol) {
+        case "ws:":
+        case "wss:":
+          this.engine.addProvider(new WebsocketProvider({ rpcUrl: url }));
+          break;
+        default:
+          this.engine.addProvider(new RpcProvider({ rpcUrl: url }));
+      }
+    } else {
+      const provider = providerOrUrl;
+      this.engine.addProvider(new ProviderSubprovider(provider));
+    }
+
+    // Required by the provider engine.
+    this.engine.start((err: any) => {
+      if (err) throw err;
+    });
+    
   }
 
   private signMessage(message: any, pkey: any): string {

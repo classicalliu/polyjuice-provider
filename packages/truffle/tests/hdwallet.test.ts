@@ -75,7 +75,7 @@ const SimpleStorageV2_Abi = [
 const mnemonicPhrase = "gentle coffee topic impose couple reunion ask daring boat fresh below retreat";  
 
 let provider;
-let web3;
+let web3: Web3;
 
 test.before((t) => {
   // init provider and web3
