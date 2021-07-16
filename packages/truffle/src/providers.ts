@@ -109,8 +109,10 @@ export class PolyjuiceHDWalletProvider extends HDWalletProvider {
               "0x" + POLY_MIN_GAS_PRICE.toString(16),
           }
           const polyjuice_tx = await godwoker.assembleRawL2Transaction(t);
-          const message = godwoker.generateMessageFromEthTransaction(t);
-          const signature = self.signMessage(message, pkey);
+          const message = await godwoker.generateMessageFromEthTransaction(t);
+          const msgHashBuff = Buffer.from(message);
+          const sig = EthUtil.ecsign(msgHashBuff, pkey);
+          const signature = EthUtil.toRpcSig(sig.v, sig.r, sig.s);
           const l2_tx = {
             raw: polyjuice_tx,
             signature,
